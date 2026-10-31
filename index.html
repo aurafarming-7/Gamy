@@ -39,7 +39,8 @@ body{min-width:960px}
 .thumb{aspect-ratio:16/10;display:grid;place-items:center;font-size:54px;font-weight:800;color:#fff}
 .thumb img{width:100%;height:100%;object-fit:cover}
 .game .name{padding:12px 14px;font-weight:700}
-.del{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;font-size:16px;line-height:1}
+.game:hover .del,.game:focus-within .del{opacity:1}
+.del{opacity:0;transition:opacity .12s;position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;font-size:16px;line-height:1}
 .empty{color:var(--muted);padding:40px 0}
 /* player */
 #player{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;z-index:50}
@@ -129,8 +130,6 @@ const FAKE_ICON  = 'https://ssl.gstatic.com/docs/documents/images/kix-favicon7.i
 // Games you and your friends add in code. Copy a line and edit it.
 // emoji and color are used when there is no img.
 const GAMES = [
-  { name: '2048',        url: 'https://play2048.co/',                    emoji: '🔢', color: '#f59563' },
-  { name: 'Example game', url: 'https://example.com/',                   emoji: '🎯', color: '#7a5cff' },
   // { name: 'My Game', url: 'https://yoursite.com/game/', img: 'https://yoursite.com/thumb.png' },
 ];
 /* ================================================ */
@@ -142,6 +141,9 @@ const store = {
 };
 const colors = ['#7a5cff','#ff5a4e','#14b88a','#f59563','#3b82f6','#d946ef'];
 let custom = store.get();
+let hidden = [];
+try{ hidden = JSON.parse(localStorage.getItem('gamyHidden')||'[]') }catch(e){}
+const saveHidden = ()=>{ try{ localStorage.setItem('gamyHidden', JSON.stringify(hidden)) }catch(e){} };
 
 function safeUrl(u){
   u = (u||'').trim();
@@ -152,7 +154,7 @@ function safeUrl(u){
 
 function render(){
   const q = $('search').value.trim().toLowerCase();
-  const all = [...GAMES.map(g=>({...g,custom:false})), ...custom.map((g,i)=>({...g,custom:true,idx:i}))];
+  const all = [...GAMES.filter(g=>!hidden.includes(g.url)).map(g=>({...g,custom:false})), ...custom.map((g,i)=>({...g,custom:true,idx:i}))];
   const list = all.filter(g=>g.name.toLowerCase().includes(q));
   const grid = $('grid'); grid.textContent = '';
   list.forEach((g,n)=>{
@@ -174,10 +176,15 @@ function render(){
     const open = ()=>play(g);
     card.addEventListener('click', open);
     card.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); }});
-    if(g.custom){
+    {
       const d = document.createElement('button');
-      d.className = 'del'; d.textContent = '×'; d.title = 'Remove';
-      d.addEventListener('click', e=>{ e.stopPropagation(); custom.splice(g.idx,1); store.set(custom); render(); });
+      d.className = 'del'; d.textContent = '×'; d.title = 'Remove ' + g.name;
+      d.addEventListener('click', e=>{
+        e.stopPropagation();
+        if(g.custom){ custom.splice(g.idx,1); store.set(custom); }
+        else { hidden.push(g.url); saveHidden(); }
+        render();
+      });
       card.appendChild(d);
     }
     grid.appendChild(card);
@@ -255,9 +262,6 @@ function onKey(e){
   } else if(e.key==='4'){
     e.preventDefault();
     location.replace(GOOGLE_URL);             // go to the Google main page
-  } else if(e.key==='5'){
-    e.preventDefault();
-    mode==='blank' ? show() : hide('blank');
   }
 }
 addEventListener('keydown', onKey, true);
